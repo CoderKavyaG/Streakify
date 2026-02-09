@@ -64,20 +64,26 @@ app.use("/api/notifications", notificationRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server: http://localhost:${PORT}`);
-  console.log(`🌍 Environment: ${isProduction ? "production" : "development"}`);
-  startNotificationJob();
+// Export app for Vercel
+export default app;
 
-  // Verify Telegram Bot Credentials
-  fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/getMe`)
-    .then(res => res.json() as Promise<any>)
-    .then(data => {
-      if (data.ok) {
-        console.log(`🤖 Telegram Bot Connected: @${data.result.username} (${data.result.first_name})`);
-      } else {
-        console.error("❌ Telegram Bot Error:", data.description);
-      }
-    })
-    .catch(err => console.error("❌ Failed to connect to Telegram:", (err as Error).message));
-});
+// Only start the server if running directly (not imported)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server: http://localhost:${PORT}`);
+    console.log(`🌍 Environment: ${isProduction ? "production" : "development"}`);
+    startNotificationJob();
+
+    // Verify Telegram Bot Credentials
+    fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/getMe`)
+      .then(res => res.json() as Promise<any>)
+      .then(data => {
+        if (data.ok) {
+          console.log(`🤖 Telegram Bot Connected: @${data.result.username} (${data.result.first_name})`);
+        } else {
+          console.error("❌ Telegram Bot Error:", data.description);
+        }
+      })
+      .catch(err => console.error("❌ Failed to connect to Telegram:", (err as Error).message));
+  });
+}
