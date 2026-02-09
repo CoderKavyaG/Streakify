@@ -33,18 +33,7 @@ const allowedOrigins = [
 ];
 
 const corsOptions = {
-  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-
-    // Check if the origin is allowed
-    if (allowedOrigins.includes(origin) || origin === process.env.FRONTEND_URL?.replace(/\/$/, "")) {
-      callback(null, true);
-    } else {
-      console.log("Blocked CORS origin:", origin);
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
+  origin: true, // Allow all origins (reflects the request origin)
   credentials: true,
   methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
