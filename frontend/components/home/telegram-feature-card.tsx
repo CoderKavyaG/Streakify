@@ -28,7 +28,7 @@ export default function TelegramFeatureCard() {
             )}
           </p>
           {!isLinked && (
-            <Link href="/settings">
+            <Link href="/home/settings">
               <Button variant="outline" className="mt-2">
                 Go to Settings to Connect
               </Button>

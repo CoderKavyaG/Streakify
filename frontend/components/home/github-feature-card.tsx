@@ -38,7 +38,7 @@ export default function GithubFeatureCard() {
           {githubStatus?.message}
         </div>
         {!isConnected && (
-          <Link href="/settings">
+          <Link href="/home/settings">
             <Button variant="outline" className="mt-2">
               Go to Settings to Connect
             </Button>
