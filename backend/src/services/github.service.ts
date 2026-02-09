@@ -54,13 +54,14 @@ export class GitHubService {
    * Get the token to use - prefer user token, fallback to server token
    */
   private getToken(userToken?: string): string {
-    if (userToken) {
+    if (userToken && userToken.trim().length > 0) {
       return userToken;
     }
-    if (!GITHUB_SERVER_TOKEN) {
-      throw new Error("No GitHub token available");
+    const serverToken = process.env.GITHUB_TOKEN;
+    if (serverToken && serverToken.trim().length > 0) {
+      return serverToken;
     }
-    return GITHUB_SERVER_TOKEN;
+    throw new Error("No GitHub token available (User token missing, Server token missing)");
   }
 
   /**
@@ -72,7 +73,9 @@ export class GitHubService {
     try {
       const token = this.getToken(userToken);
 
-      const response = await fetch(GITHUB_GRAPHQL_URL, {
+      console.log(`GitHub Service: Fetching contributions for ${username} using token starting with ${token.substring(0, 4)}...`);
+
+      const response = await fetch("https://api.github.com/graphql", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -85,12 +88,15 @@ export class GitHubService {
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`GitHub API error (${response.status}): ${errorText}`);
         throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
       }
 
       const data = (await response.json()) as GitHubContributionResponse;
 
       if (data.errors) {
+        console.error("GitHub GraphQL errors:", JSON.stringify(data.errors, null, 2));
         throw new Error(`GraphQL errors: ${data.errors.map(e => e.message).join(", ")}`);
       }
 
@@ -125,7 +131,7 @@ export class GitHubService {
     try {
       const token = this.getToken(userToken);
 
-      const response = await fetch(GITHUB_GRAPHQL_URL, {
+      const response = await fetch("https://api.github.com/graphql", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -150,9 +156,6 @@ export class GitHubService {
     }
   }
 
-  /**
-   * Check if user has contributed today
-   */
   /**
    * Check if user has contributed today in their timezone
    */
