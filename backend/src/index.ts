@@ -28,17 +28,21 @@ const isProduction = process.env.NODE_ENV === "production";
 const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
-  process.env.FRONTEND_URL?.replace(/\/$/, ""), // Remove trailing slash
-  process.env.FRONTEND_URL // Keep original just in case
-].filter(Boolean);
+  process.env.FRONTEND_URL?.replace(/\/$/, ""),
+  process.env.FRONTEND_URL
+];
 
 const corsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    // Check if the origin is allowed
+    if (allowedOrigins.includes(origin) || origin === process.env.FRONTEND_URL?.replace(/\/$/, "")) {
       callback(null, true);
     } else {
       console.log("Blocked CORS origin:", origin);
-      callback(null, false); // Fail safe, or allow temporarily for debugging
+      callback(new Error("Not allowed by CORS"));
     }
   },
   credentials: true,
