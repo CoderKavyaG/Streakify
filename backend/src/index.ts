@@ -24,10 +24,23 @@ const PORT = process.env.PORT || 5000;
 const isProduction = process.env.NODE_ENV === "production";
 
 // CORS configuration
+// CORS configuration
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  process.env.FRONTEND_URL?.replace(/\/$/, ""), // Remove trailing slash
+  process.env.FRONTEND_URL // Keep original just in case
+].filter(Boolean);
+
 const corsOptions = {
-  origin: isProduction
-    ? process.env.FRONTEND_URL
-    : ["http://localhost:3000", "http://localhost:3001"],
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log("Blocked CORS origin:", origin);
+      callback(null, false); // Fail safe, or allow temporarily for debugging
+    }
+  },
   credentials: true,
   methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
