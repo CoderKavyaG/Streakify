@@ -15,6 +15,20 @@ export const getContributions = async (req: Request, res: Response): Promise<voi
       return;
     }
 
+    // Log debug info
+    console.log(`Fetching contributions for ${githubUsername} (User ID: ${userId})`);
+
+    // Check if we have a token
+    if (!githubToken && !process.env.GITHUB_TOKEN) {
+      console.warn("No GitHub token available for user", userId);
+      res.status(401).json({
+        error: "No GitHub token found",
+        code: "MISSING_GITHUB_TOKEN",
+        message: "Please sign out and sign in again to refresh your GitHub connection."
+      });
+      return;
+    }
+
     // Fetch contributions from GitHub (use user's token for private repo access)
     const contributions = await githubService.getContributions(githubUsername, githubToken);
 
