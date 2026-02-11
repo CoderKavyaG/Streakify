@@ -1,3 +1,4 @@
+import { cacheService } from "./cache.service";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -69,11 +70,21 @@ export class GitHubService {
    * @param username - GitHub username
    * @param userToken - Optional user's GitHub access token (for private repo access)
    */
-  async getContributions(username: string, userToken?: string): Promise<ContributionDay[]> {
+  async getContributions(username: string, userToken?: string, forceRefresh: boolean = false): Promise<ContributionDay[]> {
     try {
+      const cacheKey = `contributions:${username}`;
+
+      if (!forceRefresh) {
+        const cachedData = cacheService.get<ContributionDay[]>(cacheKey);
+        if (cachedData) {
+          // console.log(`Cache Hit for ${username}`);
+          return cachedData;
+        }
+      }
+
       const token = this.getToken(userToken);
 
-      console.log(`GitHub Service: Fetching contributions for ${username} using token starting with ${token.substring(0, 4)}...`);
+      console.log(`GitHub Service: Fetching contributions for ${username} from GitHub...`);
 
       const response = await fetch("https://api.github.com/graphql", {
         method: "POST",
@@ -116,6 +127,9 @@ export class GitHubService {
           });
         }
       }
+
+      // Cache the result
+      cacheService.set(cacheKey, allDays);
 
       return allDays;
     } catch (error) {

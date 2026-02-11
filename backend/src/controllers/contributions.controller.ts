@@ -141,7 +141,8 @@ export const syncContributions = async (req: Request, res: Response): Promise<vo
     }
 
     // Fetch all contributions from GitHub (use user's token for private repo access)
-    const contributions = await githubService.getContributions(githubUsername, githubToken);
+    // Force refresh cache on manual sync
+    const contributions = await githubService.getContributions(githubUsername, githubToken, true);
 
     // Store last 30 days in database
     const last30Days = contributions.slice(-30);
