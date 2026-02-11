@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { githubService } from "../services/github.service";
-import { streakService } from "../services/streak.service";
+import { streakService } from "../services/streak_v2.service";
 import { supabaseAdmin } from "../config/supabase";
 
 // GET /api/contributions - Get user's GitHub contribution heatmap data
@@ -70,6 +70,11 @@ export const getTodayStatus = async (req: Request, res: Response): Promise<void>
       return;
     }
 
+    if (!githubToken && !process.env.GITHUB_TOKEN) {
+      res.status(401).json({ error: "No GitHub token found" });
+      return;
+    }
+
     const timezone = req.user?.timezone || "UTC";
 
     const hasContributed = await githubService.hasContributedToday(githubUsername, githubToken, timezone);
@@ -97,6 +102,11 @@ export const getStreakStats = async (req: Request, res: Response): Promise<void>
       return;
     }
 
+    if (!githubToken && !process.env.GITHUB_TOKEN) {
+      res.status(401).json({ error: "No GitHub token found" });
+      return;
+    }
+
     // Fetch contributions from GitHub (use user's token for private repo access)
     const contributions = await githubService.getContributions(githubUsername, githubToken);
 
@@ -108,7 +118,8 @@ export const getStreakStats = async (req: Request, res: Response): Promise<void>
       .eq("type", "streak_saved"); // Only count actual saves, not just reminders sent
 
     // Calculate streak stats
-    const stats = streakService.calculateStreakStats(contributions, savedDays || 0);
+    const stats = streakService.calculateStreakStats(contributions);
+    if (savedDays) stats.savedDays = savedDays;
 
     res.json(stats);
   } catch (error) {

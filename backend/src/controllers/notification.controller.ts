@@ -3,7 +3,7 @@ import { emailService } from "../services/email.service";
 import { telegramService } from "../services/telegram.service";
 import { supabaseAdmin } from "../config/supabase";
 import { githubService } from "../services/github.service";
-import { streakService } from "../services/streak.service";
+import { streakService } from "../services/streak_v2.service";
 
 // POST /api/notifications/test-email - Send a test email
 export const sendTestEmail = async (req: Request, res: Response): Promise<void> => {

@@ -38,7 +38,7 @@ export const useNotificationsStore = create<NotificationsStore>((set) => ({
   sendTestEmail: async (email: string) => {
     set({ sendingEmail: true, error: null, testEmailResult: null });
     try {
-      const { data } = await axios.post("/api/notifications/test-email", {
+      const { data } = await axios.post("/notifications/test-email", {
         email,
       });
       set({ testEmailResult: data.message, sendingEmail: false });
@@ -55,7 +55,7 @@ export const useNotificationsStore = create<NotificationsStore>((set) => ({
   sendReminder: async (type = "friendly") => {
     set({ loading: true, error: null, reminderResult: null });
     try {
-      const { data } = await axios.post("/api/notifications/send-reminder", {
+      const { data } = await axios.post("/notifications/send-reminder", {
         type,
       });
       set({ reminderResult: data.message, loading: false });
@@ -76,7 +76,7 @@ export const useNotificationsStore = create<NotificationsStore>((set) => ({
       telegramResult: null,
     });
     try {
-      const { data } = await axios.post("/api/notifications/send-telegram", {
+      const { data } = await axios.post("/notifications/send-telegram", {
         message,
       });
       set({ telegramResult: data.message, sendingTestTelegramMessage: false });
@@ -93,7 +93,7 @@ export const useNotificationsStore = create<NotificationsStore>((set) => ({
   fetchNotificationHistory: async () => {
     set({ loading: true, error: null });
     try {
-      const { data } = await axios.get("/api/notifications/history");
+      const { data } = await axios.get("/notifications/history");
       set({ notificationHistory: data.notifications, loading: false });
       toast.success("Notification history loaded.");
     } catch (err: unknown) {

@@ -36,7 +36,7 @@ export const useContributionsStore = create<ContributionsStore>((set, get) => ({
   fetchContributions: async () => {
     set({ loading: true, error: null });
     try {
-      const { data } = await axios.get("/api/contributions");
+      const { data } = await axios.get("/contributions");
       set({
         contributions: data.contributions,
         total: data.total,
@@ -53,7 +53,7 @@ export const useContributionsStore = create<ContributionsStore>((set, get) => ({
   fetchTodayStatus: async () => {
     set({ loading: true, error: null });
     try {
-      const { data } = await axios.get("/api/contributions/today");
+      const { data } = await axios.get("/contributions/today");
       set({ todayStatus: data, loading: false });
     } catch (err: unknown) {
       set({
@@ -66,7 +66,7 @@ export const useContributionsStore = create<ContributionsStore>((set, get) => ({
   fetchStreakStats: async () => {
     set({ loading: true, error: null });
     try {
-      const { data } = await axios.get("/api/contributions/stats");
+      const { data } = await axios.get("/contributions/stats");
       set({ streakStats: data, loading: false });
     } catch (err: unknown) {
       set({
@@ -79,7 +79,7 @@ export const useContributionsStore = create<ContributionsStore>((set, get) => ({
   syncContributions: async () => {
     set({ syncing: true, error: null });
     try {
-      await axios.post("/api/contributions/sync");
+      await axios.post("/contributions/sync");
       await get().fetchContributions();
       set({ syncing: false });
     } catch (err: unknown) {

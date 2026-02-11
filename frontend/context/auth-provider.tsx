@@ -24,6 +24,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setuser(session?.user ?? null);
+
+        // Sync provider token if available (e.g. fresh login)
+        if (session?.provider_token) {
+          import("@/stores/user").then(({ useUserStore }) => {
+            useUserStore.getState().updateGithubToken(session.provider_token!);
+          });
+        }
       },
     );
     return () => listener?.subscription.unsubscribe();

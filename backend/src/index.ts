@@ -8,6 +8,7 @@ import userRoutes from "./routes/user.routes";
 import contributionsRoutes from "./routes/contributions.routes";
 import telegramRoutes from "./routes/telegram.routes";
 import notificationRoutes from "./routes/notification.routes";
+import cronRoutes from "./routes/cron.routes";
 import {
   helmetMiddleware,
   generalRateLimiter,
@@ -17,13 +18,11 @@ import {
   logSuspiciousActivity,
 } from "./middleware/security";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
-import { startNotificationJob } from "./jobs/notifications.job";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const isProduction = process.env.NODE_ENV === "production";
 
-// CORS configuration
 // CORS configuration
 const allowedOrigins = [
   "http://localhost:3000",
@@ -70,6 +69,7 @@ app.use("/api/user", userRoutes);
 app.use("/api/contributions", contributionsRoutes);
 app.use("/api/telegram", telegramRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/cron", cronRoutes); // Add Cron Routes
 
 app.use(notFoundHandler);
 app.use(errorHandler);
@@ -82,7 +82,6 @@ if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`🚀 Server: http://localhost:${PORT}`);
     console.log(`🌍 Environment: ${isProduction ? "production" : "development"}`);
-    startNotificationJob();
 
     // Verify Telegram Bot Credentials
     fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/getMe`)

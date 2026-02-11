@@ -26,7 +26,7 @@ export default function HeaderSection() {
     fetchStreakStats();
   }, [fetchUser, fetchStreakStats]);
 
-  if (checkingAuth || loading) {
+  if (checkingAuth || !user) {
     return <HeaderSectionSkeleton />;
   }
 

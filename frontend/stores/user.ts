@@ -37,7 +37,7 @@ export const useUserStore = create<UserStore>((set, get) => ({
   fetchUser: async () => {
     set({ loading: true, error: null });
     try {
-      const { data } = await axios.get("/api/user/me");
+      const { data } = await axios.get("/user/me");
       set({
         user: data.user,
         hasGithubToken: data.hasGithubToken,
@@ -55,7 +55,7 @@ export const useUserStore = create<UserStore>((set, get) => ({
   updateSettings: async (settings) => {
     set({ updatingSettings: true, error: null });
     try {
-      const { data } = await axios.patch("/api/user/settings", settings);
+      const { data } = await axios.patch("/user/settings", settings);
       set({ user: data.user, updatingSettings: false });
       toast.success("Settings updated successfully.");
     } catch (err: unknown) {
@@ -70,7 +70,7 @@ export const useUserStore = create<UserStore>((set, get) => ({
   linkTelegram: async (telegram_chat_id) => {
     set({ loading: true, error: null });
     try {
-      const { data } = await axios.post("/api/user/telegram", {
+      const { data } = await axios.post("/user/telegram", {
         telegram_chat_id,
       });
       set({ user: data.user, loading: false });
@@ -87,7 +87,7 @@ export const useUserStore = create<UserStore>((set, get) => ({
   fetchGithubStatus: async () => {
     set({ loading: true, error: null });
     try {
-      const { data } = await axios.get("/api/user/github-status");
+      const { data } = await axios.get("/user/github-status");
       set({ githubStatus: data, loading: false });
     } catch (err: unknown) {
       set({
@@ -101,18 +101,18 @@ export const useUserStore = create<UserStore>((set, get) => ({
   updateGithubToken: async (github_access_token) => {
     set({ updatingGithubToken: true, error: null });
     try {
-      const { data } = await axios.post("/api/user/github-token", {
+      const { data } = await axios.post("/user/github-token", {
         github_access_token,
       });
       await get().fetchGithubStatus();
       set({ updatingGithubToken: false });
-      toast.success("GitHub token updated successfully.");
+      // toast.success("GitHub token updated successfully.");
     } catch (err: unknown) {
       set({
         error: getErrorMessage(err) || "Failed to update GitHub token",
         updatingGithubToken: false,
       });
-      toast.error(getErrorMessage(err) || "Failed to update GitHub token");
+      // toast.error(getErrorMessage(err) || "Failed to update GitHub token");
     }
   },
 }));

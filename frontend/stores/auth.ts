@@ -39,7 +39,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async () => {
     set({ loading: true });
     try {
-      await supabase.auth.signInWithOAuth({ provider: "github" });
+      await supabase.auth.signInWithOAuth({
+        provider: "github",
+        options: {
+          redirectTo: `${location.origin}/home`,
+          scopes: "read:user user:email repo",
+        },
+      });
       toast.success("Logged in successfully.");
     } catch (error: unknown) {
       toast.error(getErrorMessage(error) || "Login failed.");

@@ -1,0 +1,34 @@
+
+name: Streakify Hourly Cron
+
+on:
+  schedule:
+    - cron: '0 * * * *' # Run every hour on the hour
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  cron:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Vercel Cron Endpoint
+        env:
+          VERCEL_APP_URL: ${{ secrets.VERCEL_APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$VERCEL_APP_URL" ]; then
+            echo "VERCEL_APP_URL secret is not set"
+            exit 1
+          fi
+          
+          echo "Triggering hourly check..."
+          response=$(curl -s -w "%{http_code}" -X GET "$VERCEL_APP_URL/api/cron/hourly" -H "Authorization: Bearer $CRON_SECRET")
+          http_code=${response: -3}
+          content=${response:0:${#response}-3}
+          
+          echo "Response Code: $http_code"
+          echo "Response Content: $content"
+          
+          if [ "$http_code" -ne 200 ]; then
+            echo "Cron failed with status $http_code"
+            exit 1
+          fi

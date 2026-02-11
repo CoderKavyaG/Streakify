@@ -28,14 +28,15 @@ export interface SendReminderOptions {
 }
 
 export class EmailService {
-  private resend: Resend;
+  private resend: Resend | null = null;
   private fromEmail: string;
 
   constructor() {
-    if (!RESEND_API_KEY) {
-      console.warn("WARNING: RESEND_API_KEY is not set in environment variables");
+    if (!RESEND_API_KEY || RESEND_API_KEY === "your_resend_api_key") {
+      console.warn("WARNING: RESEND_API_KEY is not set. Emails will not be sent.");
+    } else {
+      this.resend = new Resend(RESEND_API_KEY);
     }
-    this.resend = new Resend(RESEND_API_KEY);
     this.fromEmail = FROM_EMAIL;
   }
 
@@ -43,6 +44,10 @@ export class EmailService {
    * Send a raw email
    */
   async sendEmail(options: SendEmailOptions): Promise<boolean> {
+    if (!this.resend) {
+      console.warn("Email service disabled (no API key)");
+      return false;
+    }
     try {
       const { data, error } = await this.resend.emails.send({
         from: this.fromEmail,
