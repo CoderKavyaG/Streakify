@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { create } from "zustand";
 
 import { TelegramStore } from "@/types";
@@ -33,20 +34,22 @@ export const useTelegramStore = create<TelegramStore>((set) => ({
   generateLinkCode: async () => {
     set({ loading: true, error: null });
     try {
-      const { data } = await axios.get("/api/telegram/link-code");
+      const { data } = await axios.get("/telegram/link-code");
       set({ linkCodeInfo: data, loading: false });
     } catch (err: unknown) {
+      const errorMessage = getErrorMessage(err) || "Failed to generate link code";
       set({
-        error: getErrorMessage(err) || "Failed to generate link code",
+        error: errorMessage,
         loading: false,
       });
+      toast.error(errorMessage);
     }
   },
 
   setWebhook: async (url) => {
     set({ loading: true, error: null });
     try {
-      const { data } = await axios.post("/api/telegram/set-webhook", { url });
+      const { data } = await axios.post("/telegram/set-webhook", { url });
       set({ webhookInfo: data, loading: false });
     } catch (err: unknown) {
       set({
@@ -59,7 +62,7 @@ export const useTelegramStore = create<TelegramStore>((set) => ({
   fetchWebhookInfo: async () => {
     set({ loading: true, error: null });
     try {
-      const { data } = await axios.get("/api/telegram/webhook-info");
+      const { data } = await axios.get("/telegram/webhook-info");
       set({ webhookInfo: data, loading: false });
     } catch (err: unknown) {
       set({

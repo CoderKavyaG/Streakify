@@ -48,6 +48,8 @@ export class TelegramService {
       console.warn("WARNING: TELEGRAM_BOT_TOKEN is not set in environment variables");
     }
     this.token = TELEGRAM_BOT_TOKEN || "";
+    // Ensure token is trimmed
+    this.token = this.token.trim();
     this.apiUrl = `${TELEGRAM_API_URL}${this.token}`;
 
     // Fetch bot username on startup

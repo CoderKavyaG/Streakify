@@ -67,6 +67,7 @@ app.get("/api/health", (req, res) => {
 
 app.use("/api/user", userRoutes);
 app.use("/api/contributions", contributionsRoutes);
+console.log("Mounting Telegram Routes at /api/telegram");
 app.use("/api/telegram", telegramRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/cron", cronRoutes); // Add Cron Routes

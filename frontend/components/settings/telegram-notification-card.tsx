@@ -52,6 +52,7 @@ export default function TelegramNotificationsCard() {
             <span className="text-red-500">Not linked</span>
           )}
         </p>
+
         {isLinked ? (
           <div className="mt-4 space-y-4">
             <div className="flex items-center gap-4">
@@ -75,56 +76,55 @@ export default function TelegramNotificationsCard() {
           </div>
         ) : (
           <div className="space-y-2">
-            <Button
-              variant="outline"
-              onClick={async () => {
-                setShowInstructions(false);
-                await generateLinkCode();
-                setShowInstructions(true);
-              }}
-              disabled={loading}
-            >
-              {loading ? "Generating..." : "Connect Telegram"}
-            </Button>
-            {error && <p className="text-xs text-red-500">{error}</p>}
-          </div>
-        )}
-
-        {!isLinked && showInstructions && linkCodeInfo && (
-          <div className="border-border bg-background mt-2 space-y-2 rounded border p-4">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold">Your Link Code:</span>
-              <span className="bg-muted rounded px-2 py-1 font-mono">
-                {linkCodeInfo.code}
-              </span>
-              <Button size="sm" variant="outline" onClick={handleCopy}>
-                Copy
+            {!linkCodeInfo ? (
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  await generateLinkCode();
+                }}
+                disabled={loading}
+              >
+                {loading ? "Generating..." : "Connect Telegram"}
               </Button>
-            </div>
-            <div className="space-y-1 text-sm">
-              <p>
-                <strong>Step 1:</strong> Open Telegram and search for{" "}
-                <b>@{linkCodeInfo.botUsername || "streakify_bot"}</b>
-              </p>
-              <p>
-                2. Send this message:{" "}
-                <span className="bg-muted rounded px-2 py-1 font-mono">
-                  /start {linkCodeInfo.code}
-                </span>
-              </p>
-              <p>3. Wait for confirmation from the bot.</p>
-              <p className="text-muted-foreground text-xs">
-                Expires in: {linkCodeInfo.expiresIn}
-              </p>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleCheckStatus}
-              disabled={checking}
-            >
-              {checking ? "Checking..." : "Check Status"}
-            </Button>
+            ) : (
+              <div className="border-border bg-background mt-2 space-y-2 rounded border p-4">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">Your Link Code:</span>
+                  <span className="bg-muted rounded px-2 py-1 font-mono">
+                    {linkCodeInfo.code}
+                  </span>
+                  <Button size="sm" variant="outline" onClick={handleCopy}>
+                    Copy
+                  </Button>
+                </div>
+                <div className="space-y-1 text-sm">
+                  <p>
+                    <strong>Step 1:</strong> Open Telegram and search for{" "}
+                    <b>@{linkCodeInfo.botUsername || "streakify_bot"}</b>
+                  </p>
+                  <p>
+                    2. Send this message:{" "}
+                    <span className="bg-muted rounded px-2 py-1 font-mono">
+                      /start {linkCodeInfo.code}
+                    </span>
+                  </p>
+                  <p>3. Wait for confirmation from the bot.</p>
+                  <p className="text-muted-foreground text-xs">
+                    Expires in: {linkCodeInfo.expiresIn}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCheckStatus}
+                  disabled={checking}
+                >
+                  {checking ? "Checking..." : "Check Status"}
+                </Button>
+              </div>
+            )}
+
+            {error && <p className="text-xs text-red-500">{error}</p>}
           </div>
         )}
       </CardContent>
