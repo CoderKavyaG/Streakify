@@ -159,7 +159,7 @@ export class GitHubService {
   /**
    * Check if user has contributed today in their timezone
    */
-  async hasContributedToday(username: string, userToken?: string, timezone: string = "UTC"): Promise<boolean> {
+  async hasContributedToday(username: string, userToken?: string, timezone: string = "Asia/Kolkata"): Promise<boolean> {
     const contributions = await this.getContributions(username, userToken);
 
     // Get today's date in user's timezone

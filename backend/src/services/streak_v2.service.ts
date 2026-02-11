@@ -58,7 +58,8 @@ export class StreakService {
         longestStreak = Math.max(longestStreak, currentRun);
 
         // Current Streak (use descending)
-        const todayStr = today.toISOString().split("T")[0];
+        const todayIST = new Date();
+        const todayStr = todayIST.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
         // Find index of today
         // Note: contributions might depend on query. If query was "yesterday", today might not be there.
@@ -70,9 +71,9 @@ export class StreakService {
         if (todayEntry && todayEntry.contributionCount > 0) {
             pointer = sorted.indexOf(todayEntry);
         } else {
-            const yesterday = new Date(today);
+            const yesterday = new Date(todayIST);
             yesterday.setDate(yesterday.getDate() - 1);
-            const yesterdayStr = yesterday.toISOString().split("T")[0];
+            const yesterdayStr = yesterday.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
             const yestEntry = sorted.find(d => d.date === yesterdayStr);
             if (yestEntry && yestEntry.contributionCount > 0) {
