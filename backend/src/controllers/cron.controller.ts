@@ -20,6 +20,8 @@ const checkCronAuth = (req: Request): boolean => {
  * HOURLY CHECK
  * Runs every hour (or minute) to check users scheduled for this time.
  */
+console.log("Loading Cron Controller...");
+
 export const runHourlyCheck = async (req: Request, res: Response) => {
   if (!checkCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
 
