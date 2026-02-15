@@ -21,7 +21,7 @@ jobs:
           fi
           
           echo "Triggering hourly check..."
-          response=$(curl -s -w "%{http_code}" -X GET "$VERCEL_APP_URL/api/cron/hourly" -H "Authorization: Bearer $CRON_SECRET")
+          response=$(curl -s -L -w "%{http_code}" -X GET "$VERCEL_APP_URL/api/cron/hourly" -H "Authorization: Bearer $CRON_SECRET")
           http_code=${response: -3}
           content=${response:0:${#response}-3}
           
