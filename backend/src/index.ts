@@ -81,6 +81,7 @@ app.use("/api/contributions", contributionsRoutes);
 console.log("Mounting Telegram Routes at /api/telegram");
 app.use("/api/telegram", telegramRoutes);
 app.use("/api/notifications", notificationRoutes);
+console.log("Mounting Cron Routes at /api/cron");
 app.use("/api/cron", cronRoutes); // Add Cron Routes
 
 app.use(notFoundHandler);
