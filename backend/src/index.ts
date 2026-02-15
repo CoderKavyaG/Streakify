@@ -61,6 +61,17 @@ app.get("/", (req, res) => {
   res.json({ message: "Streakify Backend is running 🚀" });
 });
 
+app.get("/api/debug", (req, res) => {
+  res.json({
+    originalUrl: req.originalUrl,
+    url: req.url,
+    baseUrl: req.baseUrl,
+    path: req.path,
+    cronRoutes: !!cronRoutes,
+    headers: req.headers
+  });
+});
+
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString(), version: "1.0.0" });
 });
