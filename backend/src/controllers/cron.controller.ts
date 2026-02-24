@@ -6,27 +6,41 @@ import { emailService } from '../services/email.service';
 import { telegramService } from '../services/telegram.service';
 import { streakService } from '../services/streak_v2.service';
 
-// Helper to validate cron secret
-// In Vercel, you can set CRON_SECRET environment variable
-// The request will have 'Authorization': 'Bearer <CRON_SECRET>'
+// Use a simple map for in-memory caching of notifications sent in the current runtime
+// Note: This won't persist across serverless function invocations but helps during local dev/testing
+const notifiedInRuntime = new Map<string, string>();
+
+/**
+ * Validates the cron secret from various possible sources:
+ * 1. X-Cron-Secret header
+ * 2. Authorization: Bearer <secret> header
+ * 3. ?secret=<secret> query parameter
+ */
 const checkCronAuth = (req: Request): boolean => {
-  const authHeader = req.headers.authorization;
-  if (!process.env.CRON_SECRET) return true; // Fail open if no secret set (dev mode), or strictly secure it. 
-  // Better to secure it: 
-  return authHeader === `Bearer ${process.env.CRON_SECRET}`;
+  const secret = (req.headers['x-cron-secret'] as string) ||
+    (req.headers.authorization?.replace('Bearer ', '')) ||
+    (req.query.secret as string);
+
+  const expectedSecret = process.env.CRON_SECRET || process.env.CRON_JOB_SECRET;
+
+  if (!expectedSecret) {
+    console.warn('⚠️ CRON_SECRET not set in environment variables');
+    return process.env.NODE_ENV !== 'production'; // Allow in dev, block in prod if no secret
+  }
+
+  return secret === expectedSecret;
 };
 
 /**
  * HOURLY CHECK
- * Runs every hour (or minute) to check users scheduled for this time.
+ * Triggered by GitHub Actions or Vercel Cron.
+ * Checks users who have scheduled their reminder for the current time.
  */
-console.log("Loading Cron Controller...");
+export const handleHourly = async (req: Request, res: Response) => {
+  if (!checkCronAuth(req)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
 
-export const runHourlyCheck = async (req: Request, res: Response) => {
-  if (!checkCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
-
-  // Get current time in HH:mm format (Asia/Kolkata)
-  // Note: Vercel server might be UTC. We explicitly convert to Kolkata time for checking user preferences.
   const now = new Date();
   const currentTime = now.toLocaleTimeString('en-US', {
     hour12: false,
@@ -35,10 +49,8 @@ export const runHourlyCheck = async (req: Request, res: Response) => {
     timeZone: 'Asia/Kolkata'
   });
 
-  // Handle "24:00" edge case if any, ensuring "HH:mm" format
   const formattedTime = currentTime.length === 5 ? currentTime : `0${currentTime}`;
-
-  console.log(`⏰ Cron Trigger: Hourly Check at ${formattedTime}`);
+  console.log(`⏰ Cron Trigger: Hourly Check at ${formattedTime} IST`);
 
   try {
     const { data: users, error } = await supabaseAdmin
@@ -47,28 +59,25 @@ export const runHourlyCheck = async (req: Request, res: Response) => {
       .eq('check_time', formattedTime);
 
     if (error) throw error;
-    if (!users?.length) return res.json({ message: `No users scheduled for ${formattedTime}` });
+    if (!users?.length) {
+      return res.json({ message: `No users scheduled for ${formattedTime}`, processed: 0 });
+    }
 
-    console.log(`🔔 Checking ${users.length} users at ${formattedTime}`);
+    console.log(`🔔 Checking ${users.length} users for ${formattedTime}`);
+    let notifiedCount = 0;
     const results = [];
 
     for (const user of users) {
       try {
         const timezone = user.timezone || 'Asia/Kolkata';
-        // Check if we already notified this user today to avoid spamming 
-        // if the cron runs multiple times in the same minute window?
-        // Actually, cron runs once per minute/hour. 
-        // Real spam protection: ensure we haven't sent a "friendly_reminder" today.
+        const todayKolkata = new Date().toLocaleDateString("en-CA", { timeZone: 'Asia/Kolkata' });
 
-        const todayKolkata = new Date().toLocaleDateString("en-CA", { timeZone: 'Asia/Kolkata' }); // DB dates are often stored simply
-
-        // CHECK DB LOGS
+        // Check DB logs to avoid duplicate notifications today
         const { data: existingLogs } = await supabaseAdmin
           .from('notifications_log')
           .select('*')
           .eq('user_id', user.id)
-          .eq('date', todayKolkata)
-          .in('type', ['email', 'telegram', 'friendly_reminder']); // Check if ANY reminder sent
+          .eq('date', todayKolkata);
 
         if (existingLogs && existingLogs.length > 0) {
           results.push({ user: user.github_username, status: 'Already notified today' });
@@ -82,7 +91,6 @@ export const runHourlyCheck = async (req: Request, res: Response) => {
         );
 
         if (!contributed) {
-          console.log(`❌ User ${user.github_username} hasn't contributed. Sending reminder.`);
           const contributions = await githubService.getContributions(user.github_username, user.github_access_token);
           const stats = streakService.calculateStreakStats(contributions);
 
@@ -104,71 +112,67 @@ export const runHourlyCheck = async (req: Request, res: Response) => {
             );
           }
 
-          // LOG IT
-          // We use 'email' or 'telegram' based on what was sent, or 'friendly_reminder' if we updated schema
-          // Falling back to 'email' default logic from original code to be safe with DB constraints
+          // Log notification
           await supabaseAdmin.from('notifications_log').insert({
             user_id: user.id,
             type: user.telegram_chat_id ? 'telegram' : 'email',
             date: todayKolkata
           });
 
+          notifiedCount++;
           results.push({ user: user.github_username, status: 'Reminded' });
         } else {
-          console.log(`✅ User ${user.github_username} has already contributed.`);
           results.push({ user: user.github_username, status: 'Contributed' });
         }
-      } catch (e: any) {
-        console.error(`Error processing user ${user.github_username}:`, e);
-        results.push({ user: user.github_username, error: e.message });
+      } catch (err: any) {
+        console.error(`Error processing user ${user.github_username}:`, err);
+        results.push({ user: user.github_username, error: err.message });
       }
     }
 
-    return res.json({ success: true, processed: results.length, details: results });
-  } catch (e: any) {
-    console.error('Hourly check error:', e);
-    return res.status(500).json({ error: e.message });
+    return res.json({
+      success: true,
+      message: `Processed ${results.length} users`,
+      notified: notifiedCount,
+      details: results
+    });
+  } catch (err: any) {
+    console.error('Hourly check error:', err);
+    return res.status(500).json({ error: err.message });
   }
 };
 
 /**
- * URGENT REMINDER (11 PM)
+ * URGENT CHECK
+ * Triggered at 11 PM IST.
+ * Sends a final reminder to all users who haven't contributed.
  */
-export const runUrgentCheck = async (req: Request, res: Response) => {
-  if (!checkCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
+export const handleUrgent = async (req: Request, res: Response) => {
+  if (!checkCronAuth(req)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
 
-  console.log('🚨 Cron Trigger: Urgent Reminder Check');
+  console.log('🚨 Cron Trigger: Urgent Requirement Check (11 PM IST)');
 
   try {
     const { data: users } = await supabaseAdmin.from('users').select('*');
-    if (!users?.length) return res.json({ message: 'No users found' });
+    if (!users?.length) return res.json({ message: 'No users found', notified: 0 });
 
-    const results = [];
+    let notifiedCount = 0;
     const todayKolkata = new Date().toLocaleDateString("en-CA", { timeZone: 'Asia/Kolkata' });
 
     for (const user of users) {
-      if (!user.telegram_chat_id) continue; // Urgent reminders are Telegram only currently
+      if (!user.telegram_chat_id) continue;
 
       try {
-        // CHECK DB LOGS for URGENT reminder
-        // Note: We need a way to distinguish urgent from friendly. 
-        // If we can't change schema, we might check if a log exists created > 10PM?
-        // OR we just send it anyway if they haven't contributed.
-        // Let's check if they contributed first.
-
         const timezone = user.timezone || 'Asia/Kolkata';
-        const contributed = await githubService.hasContributedToday(user.github_username, user.github_access_token, timezone);
+        const contributed = await githubService.hasContributedToday(
+          user.github_username,
+          user.github_access_token,
+          timezone
+        );
 
         if (!contributed) {
-          // Check if we ALREADY sent an URGENT reminder today (to avoid double send if cron retries)
-          // We'll rely on a specific type if possible, or just risk it if stuck with constraints.
-          // Best effort: Check if any log exists for today with 'telegram' type created in the last hour?
-          // Simpler: Just send it. Vercel Cron usually fires reliably once.
-
-          // BUT user asked to query DB.
-          // Let's assume we can use 'urgent_telegram' if schema allows, or update schema instruction.
-          // If stricly enforced, we might have issues.
-
           const contributions = await githubService.getContributions(user.github_username, user.github_access_token);
           const stats = streakService.calculateStreakStats(contributions);
 
@@ -177,34 +181,31 @@ export const runUrgentCheck = async (req: Request, res: Response) => {
             `1 hr to day end! Do commit the stuff ⏰\n\n${user.github_username}, your ${stats.currentStreak}-day streak is about to break!`
           );
 
-          // Log it
-          // We really should use a distinct type. I will use 'telegram' generally.
           await supabaseAdmin.from('notifications_log').insert({
             user_id: user.id,
             type: 'telegram',
             date: todayKolkata
           });
 
-          results.push({ user: user.github_username, status: 'Urgent Reminder Sent' });
-        } else {
-          results.push({ user: user.github_username, status: 'Contributed' });
+          notifiedCount++;
         }
-      } catch (e: any) {
-        console.error(`Error: ${user.github_username}`, e);
-        results.push({ user: user.github_username, error: e.message });
+      } catch (err: any) {
+        console.error(`Error in urgent check for ${user.github_username}:`, err);
       }
     }
-    return res.json({ success: true, processed: results.length, details: results });
-  } catch (e: any) {
-    console.error('Urgent check error:', e);
-    return res.status(500).json({ error: e.message });
+
+    return res.json({ success: true, notified: notifiedCount });
+  } catch (err: any) {
+    console.error('Urgent check error:', err);
+    return res.status(500).json({ error: err.message });
   }
 };
 
 /**
  * MIDNIGHT SYNC
+ * Syncs performance data and sends "Streak Saved" messages.
  */
-export const runMidnightSync = async (req: Request, res: Response) => {
+export const handleSync = async (req: Request, res: Response) => {
   if (!checkCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
 
   console.log('🌙 Cron Trigger: Midnight Sync');
@@ -213,69 +214,62 @@ export const runMidnightSync = async (req: Request, res: Response) => {
     const { data: users } = await supabaseAdmin.from('users').select('*');
     if (!users?.length) return res.json({ message: 'No users' });
 
-    // date logic
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    const yesterdayStr = yesterday.toLocaleDateString("en-CA", { timeZone: 'Asia/Kolkata' });
 
     for (const user of users) {
       try {
         const contributions = await githubService.getContributions(user.github_username, user.github_access_token);
 
-        // Sync last 30 days
-        for (const day of contributions.slice(-30)) {
-          await supabaseAdmin.from('contributions').upsert({ user_id: user.id, date: day.date, count: day.contributionCount }, { onConflict: 'user_id,date' });
+        // Sync contributions
+        for (const day of contributions.slice(-7)) {
+          await supabaseAdmin.from('contributions').upsert({
+            user_id: user.id,
+            date: day.date,
+            count: day.contributionCount
+          }, { onConflict: 'user_id,date' });
         }
 
-        // "Streak Saved" logic?
-        // This requires knowing if we sent an urgent reminder AND they contributed AFTER it.
-        // It's hard to track without precise logs. 
-        // Accessing 'urgentRemindersToday' from previous runs is IMPOSSIBLE in serverless.
-        // WE MUST rely on DB logs or just Checking:
-        // Did they contribute yesterday? Yes.
-        // Was it close? (Hard to know).
-        // Let's just send "Streak Saved" if they maintained streak? 
-        // Original logic: "if urgentRemindersToday.has(user)"
-        // New Logic: Check notifications_log for 'telegram' sent yesterday? 
-        // (Assuming 'telegram' log yesterday implies they were reminded).
-
+        // Check if streak was saved (reminded yesterday and contributed)
         const { data: yesterdayLogs } = await supabaseAdmin
           .from('notifications_log')
           .select('*')
           .eq('user_id', user.id)
           .eq('date', yesterdayStr);
 
-        // If we reminded them yesterday, and they have contributions for yesterday...
-        const yesterdayContribution = contributions.find(c => c.date === yesterdayStr);
-        if (yesterdayLogs && yesterdayLogs.length > 0 && yesterdayContribution && yesterdayContribution.contributionCount > 0) {
-          const stats = streakService.calculateStreakStats(contributions);
+        const yesterdayContributed = contributions.find(c => c.date === yesterdayStr)?.contributionCount || 0;
 
-          if (user.email) {
-            await emailService.sendStreakReminder({ to: user.email, username: user.github_username, currentStreak: stats.currentStreak, type: 'saved' });
-          }
+        if (yesterdayLogs?.length && yesterdayContributed > 0) {
+          const stats = streakService.calculateStreakStats(contributions);
           if (user.telegram_chat_id) {
-            await telegramService.sendMessage(user.telegram_chat_id, `🎉 Streak Saved!\n\nGreat job ${user.github_username}!\n\n🔥 Streak: ${stats.currentStreak} days\n\nKeep going! 💪`);
+            await telegramService.sendMessage(
+              user.telegram_chat_id,
+              `🎉 Streak Saved!\n\nGreat job ${user.github_username}!\n\n🔥 Streak: ${stats.currentStreak} days\n\nKeep going! 💪`
+            );
           }
         }
-
-      } catch (e) { console.error(`Sync error: ${user.github_username}`, e); }
+      } catch (err) {
+        console.error(`Sync error for ${user.github_username}:`, err);
+      }
     }
     return res.json({ success: true });
-  } catch (e: any) {
-    return res.status(500).json({ error: e.message });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 };
 
 /**
  * CLEANUP
  */
-export const runCleanup = async (req: Request, res: Response) => {
+export const handleCleanup = async (req: Request, res: Response) => {
   if (!checkCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
     await supabaseAdmin.from('telegram_link_codes').delete().lt('expires_at', new Date().toISOString());
-    return res.json({ success: true, message: 'Cleaned up codes' });
-  } catch (e: any) {
-    return res.status(500).json({ error: e.message });
+    return res.json({ success: true, message: 'Cleaned up expired codes' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 };
+
