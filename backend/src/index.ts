@@ -56,11 +56,11 @@ app.use(sanitizeRequest);
 
 // CRITICAL: Explicit health check and cron routes before any complex routing logic
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString(), version: "1.1.0" });
+  res.json({ status: "ok", timestamp: new Date().toISOString(), version: "1.1.1" });
 });
 
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString(), version: "1.1.0" });
+  res.json({ status: "ok", timestamp: new Date().toISOString(), version: "1.1.1" });
 });
 
 // Resilient cron triggers (matches with or without /api prefix)
