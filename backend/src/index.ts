@@ -9,6 +9,7 @@ import contributionsRoutes from "./routes/contributions.routes";
 import telegramRoutes from "./routes/telegram.routes";
 import notificationRoutes from "./routes/notification.routes";
 import cronRoutes from "./routes/cron.routes";
+import { handleHourly } from "./controllers/cron.controller";
 import {
   helmetMiddleware,
   generalRateLimiter,
@@ -53,20 +54,25 @@ app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(sanitizeRequest);
 
+// CRITICAL: Explicit health check and cron routes before any complex routing logic
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString(), version: "1.1.0" });
+});
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString(), version: "1.1.0" });
+});
+
+// Resilient cron triggers (matches with or without /api prefix)
+app.get("/api/cron/hourly", handleHourly);
+app.get("/cron/hourly", handleHourly);
+
 // Debug middleware to log all requests in Vercel
 app.use((req, res, next) => {
   if (process.env.NODE_ENV === "production") {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - Path: ${req.path}`);
   }
   next();
-});
-
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString(), version: "1.0.1" });
-});
-
-app.get("/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 app.get("/api/debug", (req, res) => {
@@ -82,7 +88,7 @@ app.get("/api/debug", (req, res) => {
 });
 
 app.get("/", (req, res) => {
-  res.json({ message: "Streakify Backend is running 🚀" });
+  res.json({ message: "Streakify Backend is running 🚀", status: "ready" });
 });
 
 // Use a shared router for both /api/ and root mounts to be resilient on Vercel
@@ -111,15 +117,17 @@ if (require.main === module) {
     console.log(`🌍 Environment: ${isProduction ? "production" : "development"}`);
 
     // Verify Telegram Bot Credentials
-    fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/getMe`)
-      .then(res => res.json() as Promise<any>)
-      .then(data => {
-        if (data.ok) {
-          console.log(`🤖 Telegram Bot Connected: @${data.result.username} (${data.result.first_name})`);
-        } else {
-          console.error("❌ Telegram Bot Error:", data.description);
-        }
-      })
-      .catch(err => console.error("❌ Failed to connect to Telegram:", (err as Error).message));
+    if (process.env.TELEGRAM_BOT_TOKEN) {
+      fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/getMe`)
+        .then(res => res.json() as Promise<any>)
+        .then(data => {
+          if (data.ok) {
+            console.log(`🤖 Telegram Bot Connected: @${data.result.username} (${data.result.first_name})`);
+          } else {
+            console.error("❌ Telegram Bot Error:", data.description);
+          }
+        })
+        .catch(err => console.error("❌ Failed to connect to Telegram:", (err as Error).message));
+    }
   });
 }
