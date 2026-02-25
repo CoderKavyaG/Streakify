@@ -53,12 +53,20 @@ app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(sanitizeRequest);
 
-app.get("/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+// Debug middleware to log all requests in Vercel
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === "production") {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - Path: ${req.path}`);
+  }
+  next();
 });
 
-app.get("/", (req, res) => {
-  res.json({ message: "Streakify Backend is running 🚀" });
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString(), version: "1.0.1" });
+});
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 app.get("/api/debug", (req, res) => {
@@ -68,21 +76,27 @@ app.get("/api/debug", (req, res) => {
     baseUrl: req.baseUrl,
     path: req.path,
     cronRoutes: !!cronRoutes,
-    headers: req.headers
+    headers: req.headers,
+    env: process.env.NODE_ENV
   });
 });
 
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString(), version: "1.0.0" });
+app.get("/", (req, res) => {
+  res.json({ message: "Streakify Backend is running 🚀" });
 });
 
-app.use("/api/user", userRoutes);
-app.use("/api/contributions", contributionsRoutes);
-console.log("Mounting Telegram Routes at /api/telegram");
-app.use("/api/telegram", telegramRoutes);
-app.use("/api/notifications", notificationRoutes);
-console.log("Mounting Cron Routes at /api/cron");
-app.use("/api/cron", cronRoutes); // Add Cron Routes
+// Use a shared router for both /api/ and root mounts to be resilient on Vercel
+const apiRouter = express.Router();
+
+apiRouter.use("/user", userRoutes);
+apiRouter.use("/contributions", contributionsRoutes);
+apiRouter.use("/telegram", telegramRoutes);
+apiRouter.use("/notifications", notificationRoutes);
+apiRouter.use("/cron", cronRoutes);
+
+// Mount the apiRouter at both /api and root
+app.use("/api", apiRouter);
+app.use("/", apiRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

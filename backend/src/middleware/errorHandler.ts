@@ -90,5 +90,13 @@ export const asyncHandler = (
 };
 
 export const notFoundHandler = (req: Request, res: Response, next: NextFunction) => {
-  res.status(404).json({ error: "Route not found", path: req.path, method: req.method });
+  console.warn(`[NOT_FOUND] ${req.method} ${req.originalUrl}`);
+  res.status(404).json({
+    error: "Route not found",
+    path: req.path,
+    originalUrl: req.originalUrl,
+    method: req.method,
+    baseUrl: req.baseUrl,
+    query: req.query
+  });
 };
